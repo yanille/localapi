@@ -2,8 +2,8 @@ name: CI
 
 on:
   push:
-    branches: ["**"]  # any branch, but not tags (a tagged commit was already tested)
-  pull_request:
+    branches-ignore: [main]  # any branch except main; tags don't trigger either
+  pull_request:  # main is only changed via PRs (ruleset), which are tested here
 
 jobs:
   test:
