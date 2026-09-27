@@ -1,9 +1,10 @@
 name: CI
 
 on:
-  push:
-    branches: ["**"]  # any branch, but not tags (a tagged commit was already tested)
+  # main only changes through pull requests (branch ruleset), and this tests each
+  # PR merged into main, so push runs would be duplicates. Also covers PRs from forks.
   pull_request:
+  workflow_dispatch:  # "Run workflow" button in the Actions tab, for testing any branch by hand
 
 jobs:
   test:
