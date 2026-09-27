@@ -17,7 +17,7 @@ class Point(BaseModel):
 
 @pytest.fixture
 def app():
-    app = LocalAPI(title="My Tools")
+    app = LocalAPI(title="My Tools", version="1.0")
 
     @app.post
     def add(a: int, b: int) -> int:
@@ -186,7 +186,7 @@ def test_not_found_and_wrong_method(client):
 
 def test_openapi_schema(client):
     schema = client.get("/openapi.json").json()
-    assert schema["info"]["title"] == "My Tools"
+    assert schema["info"] == {"title": "My Tools", "version": "1.0"}
     assert set(schema["paths"]["/item"]) == {"get", "put", "patch", "delete"}
     op = schema["paths"]["/add"]["post"]
     assert op["description"] == "Add two numbers."

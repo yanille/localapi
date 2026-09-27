@@ -45,8 +45,9 @@ class LocalAPI:
     ...     return a + b
     """
 
-    def __init__(self, title: str = "localapi") -> None:
+    def __init__(self, title: str = "localapi", version: str = "0.1.0") -> None:
         self.title = title
+        self.version = version  # your API's version, shown in /docs (not localapi's)
         self._registry = Registry()
         self._fastapi: FastAPI | None = None
         self._mounted: set[tuple[str, str]] = set()
@@ -104,7 +105,7 @@ class LocalAPI:
         return self._fastapi
 
     def _build(self) -> FastAPI:
-        app = FastAPI(title=self.title)
+        app = FastAPI(title=self.title, version=self.version)
 
         @app.exception_handler(RequestValidationError)
         async def _validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:

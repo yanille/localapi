@@ -94,8 +94,9 @@ def test_default_app_is_callable_decorator():
     assert any(s.path == "/some_unique_tool" for s in api.endpoints)
 
 
-def test_title_is_the_only_option():
-    assert LocalAPI(title="Tools").title == "Tools"
-    for kwarg in ("version", "description"):
-        with pytest.raises(TypeError):
-            LocalAPI(**{kwarg: "x"})
+def test_init_options():
+    app = LocalAPI(title="Tools", version="2.1")
+    assert (app.title, app.version) == ("Tools", "2.1")
+    assert LocalAPI().version == "0.1.0"
+    with pytest.raises(TypeError):
+        LocalAPI(description="x")

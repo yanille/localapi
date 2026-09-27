@@ -47,7 +47,7 @@ pip install -e ".[test]"    # with test dependencies
 ```python
 from localapi import LocalAPI
 
-app = LocalAPI(title="My Tools")
+app = LocalAPI(title="My Tools", version="1.0")   # your API's version, shown in /docs
 
 @app.post                              # POST /greet
 def greet(name: str, excited: bool = False) -> str:

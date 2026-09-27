@@ -4,10 +4,10 @@
 
 | | |
 |---|---|
-| **Status** | v0.1.0 on PyPI; v0.2.0 (breaking API cleanup) ready to release |
+| **Status** | v0.1.0 on PyPI; v0.2.0 (breaking API cleanup) and v0.2.1 tagged, not yet published |
 | **Language** | Python 3.10+ |
 | **Built on** | FastAPI / Starlette + Uvicorn |
-| **Target milestone** | v0.2: `@app.<method>` decorators, title-only `LocalAPI(...)` |
+| **Target milestone** | v0.2: `@app.<method>` decorators, `description` removed from `LocalAPI(...)` |
 | **Last updated** | September 2026 |
 
 ---
@@ -121,8 +121,10 @@ v0.1.0 is published on PyPI. v0.2.0 is a breaking cleanup of the public API and 
 ### 🚧 In Progress: v0.2.0 (breaking)
 
 - [x] Decorators renamed to one per HTTP method (`@app.get/post/put/patch/delete`); `@app.endpoint` removed
-- [x] `LocalAPI(...)` takes only `title` (`version` and `description` removed)
-- [ ] Publish to PyPI and tag `v0.2.0`
+- [x] `LocalAPI(...)` takes `title` and `version` (`description` removed)
+- [x] Tag `v0.2.0`
+- [x] v0.2.1: restore optional `version` on `LocalAPI(...)` (the API version shown in `/docs`); tag `v0.2.1`
+- [ ] Publish to PyPI
 
 ### ✅ Done: v0.1 (MVP)
 
@@ -153,7 +155,7 @@ See the [Roadmap](#10-roadmap): async, CLI, auth, CORS, hot reload, background t
 ```python
 from localapi import LocalAPI
 
-app = LocalAPI(title="My Tools")
+app = LocalAPI(title="My Tools", version="1.0")
 
 @app.post                     # POST /add
 def add(a: int, b: int) -> int:
@@ -384,7 +386,8 @@ v0.1  MVP (released) ───────────────────�
 
 v0.2  API cleanup (breaking) ──────────────────────────
       ├── @app.get/post/put/patch/delete replace @app.endpoint
-      └── LocalAPI(title=...) only; version/description removed
+      ├── LocalAPI(title=..., version=...); description removed
+      └── 0.2.1: version argument restored (0.2.0 had removed it)
 
 v0.3  Everyday use ────────────────────────────────────
       ├── async functions (first-class, documented)
