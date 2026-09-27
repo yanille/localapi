@@ -7,7 +7,7 @@ from localapi import LocalAPI
 
 app = LocalAPI()
 
-@app.endpoint
+@app.post
 def add(a: int, b: int) -> int:
     return a + b
 
@@ -35,7 +35,8 @@ pip install -e ".[test]"    # with test dependencies
 | Derived from | Becomes |
 |---|---|
 | Function name `add` | Route `/add` |
-| `@app.endpoint` / `@app.get` | `POST` (JSON body) / `GET` (query string) |
+| `@app.get` | `GET`, arguments from the query string |
+| `@app.post` / `@app.put` / `@app.patch` / `@app.delete` | That method, arguments from a JSON body |
 | Parameters | Request fields; defaults make them optional |
 | Type hints | Validation (unannotated parameters accept any JSON value) |
 | Return hint | Response schema in OpenAPI |
@@ -46,9 +47,9 @@ pip install -e ".[test]"    # with test dependencies
 ```python
 from localapi import LocalAPI
 
-app = LocalAPI(title="My Tools", version="1.0")
+app = LocalAPI(title="My Tools")
 
-@app.endpoint                          # POST /greet
+@app.post                              # POST /greet
 def greet(name: str, excited: bool = False) -> str:
     """Say hello."""
     return f"Hello {name}" + ("!" if excited else "")
@@ -57,9 +58,13 @@ def greet(name: str, excited: bool = False) -> str:
 def status() -> dict:
     return {"status": "ok"}
 
-@app.endpoint(path="/math/add", name="addition")
+@app.post(path="/math/add", name="addition")
 def add(a: int, b: int) -> int:
     return a + b
+
+@app.delete(path="/files")             # DELETE /files (a path can be reused across methods)
+def remove_file(name: str) -> bool:
+    ...
 
 app.run()                              # http://127.0.0.1:8000
 ```
@@ -67,7 +72,7 @@ app.run()                              # http://127.0.0.1:8000
 Decorators return the original function, so it stays callable and testable as plain Python.
 `async def` functions are awaited; regular functions run in a threadpool so slow ones don't block the server.
 
-For one-file scripts there's a default instance:
+For one-file scripts there's a default instance, where bare `@api` means `@api.post`:
 
 ```python
 from localapi import api

@@ -40,31 +40,43 @@ class LocalAPI:
     """A collection of Python functions exposed as HTTP endpoints.
 
     >>> app = LocalAPI()
-    >>> @app.endpoint
+    >>> @app.post
     ... def add(a: int, b: int) -> int:
     ...     return a + b
     """
 
-    def __init__(self, title: str = "localapi", version: str = "0.1.0", description: str | None = None) -> None:
+    def __init__(self, title: str = "localapi") -> None:
         self.title = title
-        self.version = version
-        self.description = description
         self._registry = Registry()
         self._fastapi: FastAPI | None = None
-        self._mounted: set[str] = set()
+        self._mounted: set[tuple[str, str]] = set()
 
     # -- Registration -------------------------------------------------------
-
-    def endpoint(self, func: Callable[..., Any] | None = None, *, path: str | None = None, name: str | None = None):
-        """Expose ``func`` as ``POST /<name>`` taking a JSON body. Usable bare or with options."""
-        return self._decorate("POST", func, path, name)
+    # One decorator per HTTP method, each usable bare or with ``path=``/``name=`` options.
+    # GET reads arguments from the query string; the others read a JSON body.
 
     def get(self, func: Callable[..., Any] | None = None, *, path: str | None = None, name: str | None = None):
         """Expose ``func`` as ``GET /<name>`` taking query-string parameters."""
         return self._decorate("GET", func, path, name)
 
-    # ``@api`` is shorthand for ``@api.endpoint`` (D-05).
-    __call__ = endpoint
+    def post(self, func: Callable[..., Any] | None = None, *, path: str | None = None, name: str | None = None):
+        """Expose ``func`` as ``POST /<name>`` taking a JSON body."""
+        return self._decorate("POST", func, path, name)
+
+    def put(self, func: Callable[..., Any] | None = None, *, path: str | None = None, name: str | None = None):
+        """Expose ``func`` as ``PUT /<name>`` taking a JSON body."""
+        return self._decorate("PUT", func, path, name)
+
+    def patch(self, func: Callable[..., Any] | None = None, *, path: str | None = None, name: str | None = None):
+        """Expose ``func`` as ``PATCH /<name>`` taking a JSON body."""
+        return self._decorate("PATCH", func, path, name)
+
+    def delete(self, func: Callable[..., Any] | None = None, *, path: str | None = None, name: str | None = None):
+        """Expose ``func`` as ``DELETE /<name>`` taking a JSON body."""
+        return self._decorate("DELETE", func, path, name)
+
+    # ``@api`` is shorthand for ``@api.post`` (D-05).
+    __call__ = post
 
     def _decorate(self, method: str, func, path, name):
         def wrap(fn: Callable[..., Any]) -> Callable[..., Any]:
@@ -92,7 +104,7 @@ class LocalAPI:
         return self._fastapi
 
     def _build(self) -> FastAPI:
-        app = FastAPI(title=self.title, version=self.version, description=self.description or "")
+        app = FastAPI(title=self.title)
 
         @app.exception_handler(RequestValidationError)
         async def _validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
@@ -112,11 +124,11 @@ class LocalAPI:
         return app
 
     def _mount(self, spec: EndpointSpec) -> None:
-        if spec.path in self._mounted:
+        if (spec.method, spec.path) in self._mounted:
             return
         app = self._fastapi
         assert app is not None
-        handler = _make_get_handler(spec) if spec.method == "GET" else _make_post_handler(spec)
+        handler = _make_query_handler(spec) if spec.method == "GET" else _make_body_handler(spec)
         app.add_api_route(
             spec.path,
             handler,
@@ -129,7 +141,7 @@ class LocalAPI:
             operation_id=spec.name,
         )
         app.openapi_schema = None  # regenerate docs to include late registrations
-        self._mounted.add(spec.path)
+        self._mounted.add((spec.method, spec.path))
 
     # -- Serving ------------------------------------------------------------
 
@@ -146,7 +158,7 @@ class LocalAPI:
         app = self.asgi
         print(f"localapi: serving {len(self._registry)} endpoint(s) at http://{host}:{port}  (docs: /docs)")
         for spec in self._registry:
-            print(f"  {spec.method:<5} {spec.path}")
+            print(f"  {spec.method:<6} {spec.path}")
         uvicorn.run(app, host=host, port=port, log_level=log_level, **uvicorn_kwargs)
 
 
@@ -166,7 +178,7 @@ async def _invoke(spec: EndpointSpec, kwargs: dict[str, Any]) -> JSONResponse:
     return JSONResponse(payload)
 
 
-def _make_post_handler(spec: EndpointSpec) -> Callable[..., Any]:
+def _make_body_handler(spec: EndpointSpec) -> Callable[..., Any]:
     model = spec.request_model
     if model is None:
 
@@ -196,7 +208,7 @@ def _make_post_handler(spec: EndpointSpec) -> Callable[..., Any]:
     return handler
 
 
-def _make_get_handler(spec: EndpointSpec) -> Callable[..., Any]:
+def _make_query_handler(spec: EndpointSpec) -> Callable[..., Any]:
     hints = get_hints(spec.func)
     params = []
     for param in inspect.signature(spec.func).parameters.values():

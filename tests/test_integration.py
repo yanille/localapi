@@ -17,14 +17,14 @@ class Point(BaseModel):
 
 @pytest.fixture
 def app():
-    app = LocalAPI(title="My Tools", version="1.0")
+    app = LocalAPI(title="My Tools")
 
-    @app.endpoint
+    @app.post
     def add(a: int, b: int) -> int:
         """Add two numbers."""
         return a + b
 
-    @app.endpoint
+    @app.post
     def greet(name: str, excited: bool = False) -> str:
         return f"Hello {name}" + ("!" if excited else "")
 
@@ -36,32 +36,53 @@ def app():
     def square(n: int, offset: int = 0) -> int:
         return n * n + offset
 
-    @app.endpoint
+    @app.post
     def divide(a: float, b: float) -> float:
         if b == 0:
             raise ValueError("b must be non-zero")
         return a / b
 
-    @app.endpoint
+    @app.post
     async def slow_double(n: int) -> int:
         await asyncio.sleep(0)
         return n * 2
 
-    @app.endpoint
+    @app.post
     def ping():
         return "pong"
 
-    @app.endpoint
+    @app.post
     def shift(p: Point, dx: int = 1) -> Point:
         return Point(x=p.x + dx, y=p.y)
 
-    @app.endpoint
+    @app.post
     def when() -> dict:
         return {"at": dt.date(2026, 9, 26), "where": Path("/tmp")}
 
-    @app.endpoint
+    @app.post
     def maybe(count: int = 3) -> list[int]:
         return list(range(count))
+
+    items = {"a": 1}
+
+    @app.get(path="/item")
+    def read_item(key: str) -> int:
+        return items[key]
+
+    @app.put(path="/item")
+    def set_item(key: str, value: int) -> dict:
+        items[key] = value
+        return items
+
+    @app.patch(path="/item")
+    def bump_item(key: str, by: int = 1) -> int:
+        items[key] += by
+        return items[key]
+
+    @app.delete(path="/item")
+    def remove_item(key: str) -> dict:
+        items.pop(key)
+        return items
 
     return app
 
@@ -94,6 +115,15 @@ def test_get_endpoint(client):
     assert client.get("/status").json() == {"result": {"status": "ok", "version": "1.0"}}
     assert client.get("/square", params={"n": 4}).json() == {"result": 16}
     assert client.get("/square", params={"n": 4, "offset": 1}).json() == {"result": 17}
+
+
+def test_all_methods_on_one_path(client):
+    assert client.put("/item", json={"key": "b", "value": 5}).json() == {"result": {"a": 1, "b": 5}}
+    assert client.patch("/item", json={"key": "b", "by": 2}).json() == {"result": 7}
+    assert client.get("/item", params={"key": "b"}).json() == {"result": 7}
+    r = client.request("DELETE", "/item", json={"key": "a"})
+    assert r.json() == {"result": {"b": 7}}
+    assert client.put("/item", json={"key": "b"}).status_code == 422
 
 
 def test_get_validation(client):
@@ -156,7 +186,8 @@ def test_not_found_and_wrong_method(client):
 
 def test_openapi_schema(client):
     schema = client.get("/openapi.json").json()
-    assert schema["info"] == {"title": "My Tools", "version": "1.0"}
+    assert schema["info"]["title"] == "My Tools"
+    assert set(schema["paths"]["/item"]) == {"get", "put", "patch", "delete"}
     op = schema["paths"]["/add"]["post"]
     assert op["description"] == "Add two numbers."
     assert op["requestBody"]["required"] is True
@@ -171,7 +202,7 @@ def test_openapi_schema(client):
 
 
 def test_endpoint_registered_after_build(app, client):
-    @app.endpoint
+    @app.post
     def late() -> str:
         return "here"
 

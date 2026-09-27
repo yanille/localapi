@@ -4,10 +4,10 @@
 
 | | |
 |---|---|
-| **Status** | v0.1 implemented; not yet released |
+| **Status** | v0.1.0 on PyPI; v0.2.0 (breaking API cleanup) ready to release |
 | **Language** | Python 3.10+ |
 | **Built on** | FastAPI / Starlette + Uvicorn |
-| **Target milestone** | v0.1: `@app.endpoint` + `app.run()` working end to end |
+| **Target milestone** | v0.2: `@app.<method>` decorators, title-only `LocalAPI(...)` |
 | **Last updated** | September 2026 |
 
 ---
@@ -39,7 +39,7 @@ from localapi import LocalAPI
 
 app = LocalAPI()
 
-@app.endpoint
+@app.post
 def add(a: int, b: int) -> int:
     return a + b
 
@@ -58,7 +58,7 @@ From the function signature alone, `localapi` derives:
 | Derived from | Becomes |
 |---|---|
 | Function name `add` | Route `/add` |
-| Decorator `@app.endpoint` | HTTP method `POST` |
+| Decorator `@app.post` | HTTP method `POST` |
 | Parameters `a`, `b` | JSON body fields |
 | Type hints `int` | Request validation |
 | Return hint `-> int` | Response schema |
@@ -96,11 +96,10 @@ async def add_endpoint(request):
 
 ## 3. Current Focus
 
-v0.1 is implemented and its test suite passes locally. Next:
+v0.1.0 is published on PyPI. v0.2.0 is a breaking cleanup of the public API and is ready to release. Next:
 
-1. Put the project under version control and confirm CI passes on GitHub (3.10–3.13 matrix in `.github/workflows/ci.yml`).
-2. Resolve [Q-1](#9-open-questions) (PyPI name) before a first release.
-3. Start v0.2 (async docs, auth, CORS, better error messages).
+1. Publish v0.2.0 to PyPI and tag it in git.
+2. Start v0.3 (async docs, auth, CORS, better error messages).
 
 ---
 
@@ -109,22 +108,26 @@ v0.1 is implemented and its test suite passes locally. Next:
 ### ✅ Done
 
 - [x] Core concept and value proposition defined
-- [x] Target API sketched (`LocalAPI`, `@app.endpoint`, `@app.get`, `app.run()`)
+- [x] Target API sketched (`LocalAPI`, `@app.<method>` decorators, `app.run()`)
 - [x] Module layout proposed
 - [x] Decision to build on FastAPI/Starlette rather than a custom HTTP layer
 - [x] Long-term feature list and CLI vision captured
 - [x] Response envelope (D-04) and default-app shorthand (D-05) implemented as proposed
 - [x] Package scaffolding (`pyproject.toml`, `src/` layout, CI workflow)
-- [x] v0.1 MVP: everything under "To Do: v0.1" below
+- [x] v0.1 MVP: everything under "Done: v0.1" below
+- [x] Repo on GitHub, CI passing on Python 3.10–3.13
+- [x] v0.1.0 published to PyPI
 
-### 🚧 In Progress
+### 🚧 In Progress: v0.2.0 (breaking)
 
-- [ ] First CI run on GitHub (repo not yet initialised)
+- [x] Decorators renamed to one per HTTP method (`@app.get/post/put/patch/delete`); `@app.endpoint` removed
+- [x] `LocalAPI(...)` takes only `title` (`version` and `description` removed)
+- [ ] Publish to PyPI and tag `v0.2.0`
 
 ### ✅ Done: v0.1 (MVP)
 
 - [x] `LocalAPI` class wrapping a FastAPI app
-- [x] `@app.endpoint` decorator → `POST /<function_name>`
+- [x] `@app.post` / `@app.put` / `@app.patch` / `@app.delete` decorators → `<METHOD> /<function_name>` with a JSON body
 - [x] `@app.get` decorator → `GET /<function_name>`
 - [x] Signature inspection (`inspect.signature` + `typing.get_type_hints`)
 - [x] Dynamic Pydantic request model generation
@@ -150,14 +153,14 @@ See the [Roadmap](#10-roadmap): async, CLI, auth, CORS, hot reload, background t
 ```python
 from localapi import LocalAPI
 
-app = LocalAPI(title="My Tools", version="1.0")
+app = LocalAPI(title="My Tools")
 
-@app.endpoint                 # POST /add
+@app.post                     # POST /add
 def add(a: int, b: int) -> int:
     """Add two numbers."""
     return a + b
 
-@app.endpoint                 # POST /greet
+@app.post                     # POST /greet
 def greet(name: str, excited: bool = False) -> str:
     return f"Hello {name}" + ("!" if excited else "")
 
@@ -182,14 +185,14 @@ def add(a: int, b: int):
 api.run()
 ```
 
-`api` is a pre-built `LocalAPI` instance whose `__call__` is an alias for `.endpoint`. See [D-05](#d-05-default-app-shorthand).
+`api` is a pre-built `LocalAPI` instance whose `__call__` is an alias for `.post`. See [D-05](#d-05-default-app-shorthand).
 
 ### 5.3 Decorator options (planned)
 
 Decorators work bare *and* with arguments:
 
 ```python
-@app.endpoint(path="/math/add", name="Addition")
+@app.post(path="/math/add", name="Addition")
 def add(a: int, b: int) -> int: ...
 ```
 
@@ -242,10 +245,10 @@ localapi/
 │   └── localapi/
 │       ├── __init__.py        # exports LocalAPI, api (default instance)
 │       ├── server.py          # LocalAPI class, run(), FastAPI app construction
-│       ├── routing.py         # @endpoint / @get decorators, EndpointSpec registry
+│       ├── routing.py         # EndpointSpec + registry (decorators live on LocalAPI)
 │       ├── validation.py      # inspect signature → Pydantic model
 │       ├── serialization.py   # convert return values → JSON-safe payloads
-│       └── cli.py             # (v0.3) `localapi myscript.py`
+│       └── cli.py             # (v0.4) `localapi myscript.py`
 └── tests/
     ├── test_routing.py
     ├── test_validation.py
@@ -313,14 +316,14 @@ Lightweight decision records. Status: **Accepted**, **Proposed**, or **Open**.
 
 ### D-02: Function name is the route
 **Status:** Accepted
-**Decision:** `def add` → `/add`. Overridable via `@app.endpoint(path=...)`.
+**Decision:** `def add` → `/add`. Overridable via `@app.<method>(path=...)`.
 **Consequences:** Two functions with the same name raise an error at registration rather than silently shadowing each other.
 
-### D-03: `POST` by default, `GET` opt-in
-**Status:** Accepted
-**Context:** Functions take arbitrary typed arguments; JSON bodies express these far better than query strings, and most "tool" functions have side effects.
-**Decision:** `@app.endpoint` → `POST` with a JSON body. `@app.get` → `GET` with parameters from the query string, intended for read-only functions such as `status()`.
-**Consequences:** GET endpoints are limited to simple scalar parameters.
+### D-03: One decorator per HTTP method
+**Status:** Accepted (revised September 2026; originally `@app.endpoint` for POST plus `@app.get`)
+**Context:** Functions take arbitrary typed arguments; JSON bodies express these far better than query strings. Naming decorators after HTTP methods matches FastAPI/Flask and makes the method obvious at the call site.
+**Decision:** `@app.get`, `@app.post`, `@app.put`, `@app.patch`, `@app.delete`. `GET` takes parameters from the query string and is intended for read-only functions such as `status()`; every other method takes a JSON body. Routes are unique per (method, path), so one path can serve several methods.
+**Consequences:** GET endpoints are limited to simple scalar parameters. Bare `@api` on the default app means `@api.post`.
 
 ### D-04: Response envelope
 **Status:** Accepted (implemented in v0.1)
@@ -341,7 +344,7 @@ Lightweight decision records. Status: **Accepted**, **Proposed**, or **Open**.
 
 ### D-07: Decorators return the original function
 **Status:** Accepted
-**Decision:** `@app.endpoint` registers the function and returns it untouched.
+**Decision:** Every `@app.<method>` decorator registers the function and returns it untouched.
 **Consequences:** Functions remain normal Python: callable, testable, importable, with no hidden wrapper behaviour.
 
 ### D-08: Missing type hints → `Any`
@@ -359,12 +362,12 @@ Lightweight decision records. Status: **Accepted**, **Proposed**, or **Open**.
 
 | # | Question | Notes |
 |---|---|---|
-| Q-1 | Is the name `localapi` available on PyPI? | Check before first release; have a fallback name ready. |
-| Q-2 | Should zero-argument `@app.endpoint` functions also answer `GET`? | Would make `curl localhost:8000/bluetooth_devices` work without `-X POST`. Convenient but blurs D-03. |
+| Q-1 | ~~Is the name `localapi` available on PyPI?~~ | **Resolved:** published as `localapi` (0.1.0). |
+| Q-2 | Should zero-argument `@app.post` functions also answer `GET`? | Would make `curl localhost:8000/bluetooth_devices` work without `-X POST`. Convenient but blurs D-03. |
 | Q-3 | ~~How should `*args` / `**kwargs` be handled?~~ | **Resolved in v0.1:** `*args` and positional-only params are rejected at registration; `**kwargs` on POST accepts extra JSON fields and passes them through; `**kwargs` on GET is rejected. |
 | Q-4 | Should a single-parameter function accept a bare body? | e.g. `POST /greet` with body `"Ada"` instead of `{"name": "Ada"}`. |
 | Q-5 | How should binary/file returns work? | `screenshot()` might return image bytes; consider returning `Path` → file response. |
-| Q-6 | Auth model for v0.2? | Simple bearer token generated on startup and printed to the console is the leading idea. |
+| Q-6 | Auth model for v0.3? | Simple bearer token generated on startup and printed to the console is the leading idea. |
 | Q-7 | CLI discovery: which functions get exposed? | Options: all public top-level functions, only decorated ones, or a `--only` flag. |
 | Q-8 | Minimum Python version? | 3.10 enables `X | Y` unions in hints; 3.9 would widen reach. |
 
@@ -373,24 +376,28 @@ Lightweight decision records. Status: **Accepted**, **Proposed**, or **Open**.
 ## 10. Roadmap
 
 ```
-v0.1  MVP ─────────────────────────────────────────────
+v0.1  MVP (released) ──────────────────────────────────
       ├── LocalAPI, @app.endpoint, @app.get, app.run()
       ├── automatic validation
       ├── automatic JSON serialization
       └── OpenAPI docs at /docs
 
-v0.2  Everyday use ────────────────────────────────────
+v0.2  API cleanup (breaking) ──────────────────────────
+      ├── @app.get/post/put/patch/delete replace @app.endpoint
+      └── LocalAPI(title=...) only; version/description removed
+
+v0.3  Everyday use ────────────────────────────────────
       ├── async functions (first-class, documented)
       ├── decorator options (path, name, tags)
       ├── authentication (token)
       ├── CORS configuration
       └── better error messages
 
-v0.3  The killer feature ──────────────────────────────
+v0.4  The killer feature ──────────────────────────────
       ├── CLI: `localapi myscript.py`
       └── hot reload (`localapi myscript.py --reload`)
 
-v0.4+ Advanced ────────────────────────────────────────
+v0.5+ Advanced ────────────────────────────────────────
       ├── background tasks (fire-and-forget + job status)
       ├── WebSockets / streaming (generators → streamed responses)
       └── file uploads & file responses
@@ -400,7 +407,7 @@ v0.4+ Advanced ─────────────────────�
 
 **v0.1** is done when the quickstart in this document works exactly as written, `/docs` shows every registered endpoint with correct schemas, invalid input returns a `422` envelope, and the test suite passes on CI.
 
-**v0.3** is done when `localapi myscript.py` exposes the functions in an unmodified script with no imports from `localapi` required.
+**v0.4** is done when `localapi myscript.py` exposes the functions in an unmodified script with no imports from `localapi` required.
 
 ---
 
@@ -416,17 +423,17 @@ v0.4+ Advanced ─────────────────────�
 ## 12. Use Cases
 
 ```python
-@app.endpoint
+@app.post
 def screenshot() -> str:
     """Take a screenshot and return the saved file path."""
     ...
 
-@app.endpoint
+@app.post
 def launch_app(name: str):
     """Open an application by name."""
     ...
 
-@app.endpoint
+@app.post
 def bluetooth_devices() -> list[dict]:
     """List nearby Bluetooth devices."""
     ...

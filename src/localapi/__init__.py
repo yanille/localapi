@@ -3,7 +3,7 @@
 from localapi.routing import EndpointSpec
 from localapi.server import LocalAPI
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 # Module-level default instance for one-file scripts (see D-05).
 api = LocalAPI()

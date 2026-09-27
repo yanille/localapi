@@ -7,7 +7,7 @@ from localapi.routing import make_spec
 def test_function_name_is_route_and_post_is_default():
     app = LocalAPI()
 
-    @app.endpoint
+    @app.post
     def add(a: int, b: int) -> int:
         """Add two numbers."""
         return a + b
@@ -25,7 +25,7 @@ def test_decorators_return_original_function():
     def add(a: int, b: int) -> int:
         return a + b
 
-    assert app.endpoint(add) is add
+    assert app.post(add) is add
     assert app.get(path="/other")(add) is add
     assert add(1, 2) == 3
 
@@ -33,7 +33,7 @@ def test_decorators_return_original_function():
 def test_decorator_options():
     app = LocalAPI()
 
-    @app.endpoint(path="math/add", name="Addition")
+    @app.post(path="math/add", name="Addition")
     def add(a: int, b: int) -> int: ...
 
     (spec,) = app.endpoints
@@ -49,16 +49,31 @@ def test_get_decorator():
     assert app.endpoints[0].method == "GET"
 
 
+def test_one_decorator_per_method():
+    app = LocalAPI()
+    for method in ("get", "post", "put", "patch", "delete"):
+        getattr(app, method)(path=f"/{method}")(lambda: None)
+    assert [s.method for s in app.endpoints] == ["GET", "POST", "PUT", "PATCH", "DELETE"]
+    assert not hasattr(app, "endpoint")
+
+
 def test_duplicate_route_raises():
     app = LocalAPI()
 
-    @app.endpoint
+    @app.post
     def add(a: int, b: int): ...
 
     with pytest.raises(ValueError, match="already registered"):
 
-        @app.get(path="/add")
+        @app.post(path="/add")
         def other(): ...
+
+
+def test_same_path_different_methods_allowed():
+    app = LocalAPI()
+    app.get(path="/item")(lambda: None)
+    app.delete(path="/item")(lambda: None)
+    assert len(app.endpoints) == 2
 
 
 def test_async_detected():
@@ -77,3 +92,10 @@ def test_default_app_is_callable_decorator():
 
     assert api(some_unique_tool) is some_unique_tool
     assert any(s.path == "/some_unique_tool" for s in api.endpoints)
+
+
+def test_title_is_the_only_option():
+    assert LocalAPI(title="Tools").title == "Tools"
+    for kwarg in ("version", "description"):
+        with pytest.raises(TypeError):
+            LocalAPI(**{kwarg: "x"})

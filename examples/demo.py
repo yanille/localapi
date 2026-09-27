@@ -2,22 +2,22 @@
 
 from localapi import LocalAPI
 
-app = LocalAPI(title="Demo Tools", version="1.0")
+app = LocalAPI(title="Demo Tools")
 
 
-@app.endpoint
+@app.post
 def add(a: int, b: int) -> int:
     """Add two numbers."""
     return a + b
 
 
-@app.endpoint
+@app.post
 def greet(name: str, excited: bool = False) -> str:
     """Say hello to someone."""
     return f"Hello {name}" + ("!" if excited else "")
 
 
-@app.endpoint
+@app.post
 def divide(a: float, b: float) -> float:
     """Divide a by b (try b = 0 to see an error)."""
     return a / b

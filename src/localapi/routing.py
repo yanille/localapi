@@ -15,7 +15,7 @@ from localapi.validation import build_request_model, get_hints
 class EndpointSpec:
     func: Callable[..., Any]
     path: str  # "/add"
-    method: str  # "POST" | "GET"
+    method: str  # "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
     name: str  # "add"
     description: str | None
     request_model: type[BaseModel] | None
@@ -56,20 +56,21 @@ def make_spec(
 
 
 class Registry:
-    """Ordered collection of endpoints, keyed by path."""
+    """Ordered collection of endpoints, keyed by (method, path)."""
 
     def __init__(self) -> None:
-        self._specs: dict[str, EndpointSpec] = {}
+        self._specs: dict[tuple[str, str], EndpointSpec] = {}
 
     def add(self, spec: EndpointSpec) -> None:
-        existing = self._specs.get(spec.path)
+        key = (spec.method, spec.path)
+        existing = self._specs.get(key)
         if existing is not None:
             raise ValueError(
-                f"Route {spec.path!r} is already registered by "
+                f"Route {spec.method} {spec.path!r} is already registered by "
                 f"{existing.func.__module__}.{existing.func.__qualname__}; "
                 f"pass path=... to register {spec.func.__qualname__} elsewhere"
             )
-        self._specs[spec.path] = spec
+        self._specs[key] = spec
 
     def __iter__(self):
         return iter(self._specs.values())
